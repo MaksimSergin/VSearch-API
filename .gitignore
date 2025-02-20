@@ -1,0 +1,15 @@
+.idea
+.DS_Store
+.vscode
+venv
+
+.env
+*.sqlite
+*.sqlite3
+*.db
+*.csv
+*.zip
+*.txt
+
+.pytest_cache
+celerybeat-schedule
