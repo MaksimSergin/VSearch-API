@@ -41,6 +41,7 @@ class Vacancy(models.Model):
     Each vacancy may have an associated area and a set of keywords.
     """
     text = models.TextField(verbose_name="Vacancy Text")
+    source = models.TextField(verbose_name="Vacancy Source", null=True, blank=True)
     area = models.ForeignKey(
         Area,
         on_delete=models.SET_NULL,
