@@ -12,9 +12,15 @@ RUN apt-get update \
     && apt-get install -y default-libmysqlclient-dev build-essential libpq-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Копируем файл зависимостей и устанавливаем пакеты
-COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# Установка Poetry
+RUN pip install poetry
+
+# Копирование зависимостей проекта
+COPY pyproject.toml poetry.lock /app/
+
+# Установка зависимостей проекта без создания виртуального окружения
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --no-root
 
 # Копируем весь проект
 COPY . /app/

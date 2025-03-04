@@ -2,9 +2,9 @@ import json
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from pydantic import ValidationError
-from core.models import Vacancy, Keyword, Area
+from core.models import Vacancy
 from core.schemas import VacancyInput
-# from core.tasks import update_vacancy_area_and_keywords
+from core.services import VacancyDuplicateDetector
 
 class VacancyCreateAPIView(APIView):
     """
@@ -16,13 +16,23 @@ class VacancyCreateAPIView(APIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            # Получаем и валидируем входящие данные через Pydantic
-            data = json.loads(request.body)
-            validated_data = VacancyInput(**data)
+            validated_data = VacancyInput(**request.data)
         except (ValidationError, json.JSONDecodeError) as e:
             return JsonResponse({"error": str(e)}, status=400)
 
-        # Создаем вакансию без указания области
+        # Загружаем все существующие вакансии (только текст) из базы данных
+        existing_vacancies = list(Vacancy.objects.values_list('text', flat=True))
+        detector = VacancyDuplicateDetector(threshold=0.85, initial_vacancies=existing_vacancies)
+
+        # Проверяем, является ли новая вакансия дубликатом
+        is_dup, sim = detector.is_duplicate(validated_data.text)
+        if is_dup:
+            return JsonResponse(
+                {"error": f"Вакансия уже существует (дубликат). Сходство: {sim:.2f}"},
+                status=400
+            )
+
+        # Если не дублируется, создаём вакансию
         vacancy = Vacancy.objects.create(
             text=validated_data.text,
             source=validated_data.source
@@ -31,7 +41,6 @@ class VacancyCreateAPIView(APIView):
         # Запускаем фоновую задачу для определения области и поиска ключевых слов
         # update_vacancy_area_and_keywords.delay(vacancy.id)
 
-        # Отдаем быстрый ответ, не дожидаясь обновления вакансии
         return JsonResponse({
             "id": vacancy.id,
             "text": vacancy.text,
