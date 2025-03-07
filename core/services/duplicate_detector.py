@@ -22,14 +22,18 @@ class VacancyDuplicateDetector:
 
     def is_duplicate(self, vacancy_text):
         if self.tfidf_matrix is None:
-            return False, 0.0
+            return False, 0.0, None
         vacancy_vec = self.vectorizer.transform([vacancy_text])
         similarities = cosine_similarity(vacancy_vec, self.tfidf_matrix).flatten()
         max_similarity = similarities.max() if similarities.size > 0 else 0.0
-        return (max_similarity >= self.threshold), max_similarity
+        if max_similarity >= self.threshold:
+            duplicate_index = similarities.argmax()
+            duplicate_vacancy = self.vacancies[duplicate_index]
+            return True, max_similarity, duplicate_vacancy
+        return False, max_similarity, None
 
     def add_vacancy(self, vacancy_text):
-        duplicate, similarity = self.is_duplicate(vacancy_text)
+        duplicate, similarity, _ = self.is_duplicate(vacancy_text)
         if duplicate:
             return False, similarity
         if self.tfidf_matrix is None:
