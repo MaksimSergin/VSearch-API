@@ -5,6 +5,8 @@ from pydantic import ValidationError
 from core.models import Vacancy
 from core.schemas import VacancyInput
 from core.services import VacancyDuplicateDetector
+from core.utils import send_debug_telegram
+
 
 class VacancyCreateAPIView(APIView):
     def post(self, request, *args, **kwargs):
@@ -16,8 +18,9 @@ class VacancyCreateAPIView(APIView):
         existing_vacancies_texts = list(Vacancy.objects.values_list('text', flat=True))
         detector = VacancyDuplicateDetector(threshold=0.85, initial_vacancies=existing_vacancies_texts)
 
-        is_dup, sim = detector.is_duplicate(validated_data.text)
+        is_dup, sim, orig = detector.is_duplicate(validated_data.text)
         if is_dup:
+            send_debug_telegram(f"#duplicate\nVacancy is duplicate with similarity {sim:.2f}.\n\nDuplicate text:\n{validated_data.text}\n\nOriginal vacancy:\n{orig}")
             return JsonResponse(
                 {"error": f"Вакансия уже существует (дубликат). Сходство: {sim:.2f}"},
                 status=400

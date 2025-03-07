@@ -12,16 +12,16 @@ from core.models import (
     AnalysisKeyRequirement,
     VacancyAnalysis
 )
+from core.utils import send_debug_telegram
 
 logger = logging.getLogger(__name__)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 if not OPENAI_API_KEY:
     raise EnvironmentError("API key for OpenAI is not set in environment variables.")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# System prompt to instruct ChatGPT on how to parse the vacancies.
 GPT_SYSTEM_PROMPT = """YOU ARE A SPECIALIST IN JOB DATA EXTRACTION AND STRUCTURED DATA FORMATTING. YOUR TASK IS TO PARSE JOB VACANCIES FROM A JSON INPUT AND OUTPUT THE INFORMATION IN A **CLEAN JSON FORMAT** FOR EASY PROCESSING VIA AN API.
 
 <instructions>
@@ -146,7 +146,7 @@ def process_vacancy_batch():
 
     vacancies_for_gpt = []
     for vac in unprocessed:
-        _id = vac.id  # using the internal id for mapping
+        _id = vac.id  # using internal id for mapping
         vacancies_for_gpt.append({
             "id": _id,
             "text": vac.text
@@ -156,13 +156,10 @@ def process_vacancy_batch():
         "Vacancies": vacancies_for_gpt
     }
 
-    # Serialize payload using json.dumps to ensure proper JSON formatting.
     messages = [
         {"role": "system", "content": GPT_SYSTEM_PROMPT},
         {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}
     ]
-
-    print(messages)
 
     try:
         response = client.chat.completions.create(
@@ -171,30 +168,31 @@ def process_vacancy_batch():
             temperature=0.0
         )
     except Exception as e:
-        logger.error(f"ChatGPT API error: {e}")
+        error_msg = f"Error calling ChatGPT API: {e}"
+        logger.error(error_msg)
+        send_debug_telegram(error_msg)
         return
 
     if not response or not response.choices:
-        logger.error("No response from ChatGPT.")
+        error_msg = "No response from ChatGPT."
+        logger.error(error_msg)
+        send_debug_telegram(error_msg)
         return
 
-    # Retrieve the ChatGPT response content.
-    print(response.choices)
     chatgpt_content = response.choices[0].message.content.strip()
     # Remove Markdown code fences if present.
     if chatgpt_content.startswith("```"):
-        # Remove leading and trailing backticks.
         chatgpt_content = chatgpt_content.strip("`").strip()
-        # If a language tag is present (e.g., "json"), remove it.
         if chatgpt_content.lower().startswith("json"):
             chatgpt_content = chatgpt_content[4:].strip()
 
     try:
         gpt_json = json.loads(chatgpt_content)
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to decode JSON from ChatGPT: {e} | content: {chatgpt_content}")
+        error_msg = f"Failed to decode JSON from ChatGPT: {e} | content: {chatgpt_content}"
+        logger.error(error_msg)
+        send_debug_telegram(error_msg)
         return
-    print(gpt_json)
 
     if isinstance(gpt_json, list):
         data_vacancies = gpt_json
@@ -217,7 +215,9 @@ def process_vacancy_batch():
             continue
 
         if item.get("not_a_vacancy"):
+            text = vacancy_obj.text
             vacancy_obj.delete()
+            send_debug_telegram(f"#notVacancy\n\nVacancy is not a valid vacancy and has been deleted.\n\nText is:\n{text}\n")
             continue
 
         job_category_name = item.get("job_category")
@@ -271,5 +271,25 @@ def process_vacancy_batch():
 
         vacancy_obj.is_processed = True
         vacancy_obj.save()
+        # Build formatted debug message with vacancy text and structured information
+        formatted_info = (
+            f"Job Category: {job_category.name}\n"
+            f"Job Subcategory: {job_subcategory.name if job_subcategory else '-'}\n"
+            f"Company: {company if company else '-'}\n"
+            f"Location: {location}\n"
+            f"Employment Type: {employment_type if employment_type else '-'}\n"
+            f"Work Format: {work_format if work_format else '-'}\n"
+            f"Salary Range: {salary_range_min if salary_range_min else '-'} - {salary_range_max if salary_range_max else '-'} ({salary_currency if salary_currency else '-'})\n"
+            f"Experience Required: {experience_years_required if experience_years_required else '-'}\n"
+            f"Key Requirements: {', '.join(key_reqs) if key_reqs else '-'}"
+        )
+        debug_message = (
+            f"#processedVacancy\n"
+            f"Vacancy Text:\n{vacancy_obj.text}\n\n"
+            f"Formatted Information:\n{formatted_info}"
+        )
+        send_debug_telegram(debug_message)
 
-    logger.info(f"Processed {len(data_vacancies)} vacancies from ChatGPT.")
+    summary_msg = f"#info\nProcessed {len(data_vacancies)} vacancies from ChatGPT response."
+    logger.info(summary_msg)
+    send_debug_telegram(summary_msg)
