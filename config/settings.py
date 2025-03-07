@@ -133,7 +133,7 @@ CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
 
 CELERY_BEAT_SCHEDULE = {
-    'process_vacancy_batch_every_5_seconds': {
+    'process_vacancy_batch': {
         'task': 'core.tasks.process_vacancy_batch',
         'schedule': timedelta(seconds=60),
     },
