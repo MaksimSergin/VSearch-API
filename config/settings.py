@@ -131,10 +131,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://redis:6379/0")
 
+VACANCY_PROCESSING_SCHEDULE_SECONDS = os.getenv("VACANCY_PROCESSING_SCHEDULE_SECONDS")
 
 CELERY_BEAT_SCHEDULE = {
     'process_vacancy_batch': {
         'task': 'core.tasks.process_vacancy_batch',
-        'schedule': timedelta(seconds=60),
+        'schedule': timedelta(seconds=int(VACANCY_PROCESSING_SCHEDULE_SECONDS)),
     },
 }
