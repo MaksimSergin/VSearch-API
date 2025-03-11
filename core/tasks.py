@@ -114,7 +114,7 @@ def process_vacancy_batch():
 
         if item.get("not_a_vacancy"):
             text = vacancy_obj.text
-            vacancy_obj.delete()
+            vacancy_obj.is_processed = True
             send_debug_telegram(f"#notVacancy\n\nVacancy is not a valid vacancy and has been deleted.\n\nText is:\n{text}\n")
             continue
 
@@ -168,6 +168,7 @@ def process_vacancy_batch():
                     analysis.key_requirements.add(kr)
 
         vacancy_obj.is_processed = True
+        vacancy_obj.is_valid = True
         vacancy_obj.save()
         # Build formatted debug message with vacancy text and structured information
         formatted_info = (
