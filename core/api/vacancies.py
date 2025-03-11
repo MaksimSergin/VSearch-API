@@ -1,4 +1,6 @@
 import json
+import os
+
 from django.http import JsonResponse
 from rest_framework.views import APIView
 from pydantic import ValidationError
@@ -14,6 +16,10 @@ class VacancyCreateAPIView(APIView):
             validated_data = VacancyInput(**request.data)
         except (ValidationError, json.JSONDecodeError) as e:
             return JsonResponse({"error": str(e)}, status=400)
+
+        VACANCY_MIN_LENGTH = os.getenv("VACANCY_MIN_LENGTH")
+        if len(validated_data.text) < int(VACANCY_MIN_LENGTH):
+            return JsonResponse({"error": "Vacancy is too small"}, status=400)
 
         existing_vacancies_texts = list(Vacancy.objects.values_list('text', flat=True))
         detector = VacancyDuplicateDetector(threshold=0.85, initial_vacancies=existing_vacancies_texts)

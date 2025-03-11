@@ -1,4 +1,6 @@
 # core/duplicate_detector.py
+import os
+
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.sparse import vstack
@@ -9,7 +11,7 @@ nltk.download("stopwords")
 russian_stopwords = stopwords.words("russian")
 
 class VacancyDuplicateDetector:
-    def __init__(self, threshold=0.85, initial_vacancies=None):
+    def __init__(self, threshold=float(os.getenv("VACANCY_SIMILARITY_THRESHOLD")), initial_vacancies=None):
         self.threshold = threshold
         if initial_vacancies is None:
             initial_vacancies = []
