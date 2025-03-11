@@ -23,6 +23,7 @@ class Vacancy(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
     is_processed = models.BooleanField(default=False, verbose_name="Is Processed")
+    is_valid = models.BooleanField(default=False, verbose_name="Is Valid")
     class Meta:
         verbose_name = "Vacancy"
         verbose_name_plural = "Vacancies"
